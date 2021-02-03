@@ -10,7 +10,11 @@ import (
 )
 
 var (
-	templates = template.Must(template.ParseFiles("view.html", "edit.html"))
+	dataPath  = "./data/"
+	tmplPath  = "./tmpl/"
+	templates = template.Must(template.ParseFiles(
+		tmplPath+"view.html",
+		tmplPath+"edit.html"))
 	validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 )
 
@@ -21,13 +25,13 @@ type Page struct {
 }
 
 func (p *Page) save() error {
-	filename := p.Title + ".txt"
+	filename := dataPath + p.Title + ".txt"
 	return ioutil.WriteFile(filename, p.Body, 0666)
 }
 
 func loadPage(title string) (*Page, error) {
 	filename := title + ".txt"
-	body, err := ioutil.ReadFile(filename)
+	body, err := ioutil.ReadFile(dataPath + filename)
 	if err != nil {
 		return nil, err
 	}
