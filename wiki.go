@@ -3,47 +3,20 @@ package main
 import (
 	"errors"
 	"html/template"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"regexp"
+
+	"gowiki/page"
 )
 
 var (
-	dataPath  = "./data/"
 	tmplPath  = "./tmpl/"
 	templates = template.Must(template.ParseFiles(
 		tmplPath+"view.html",
 		tmplPath+"edit.html"))
 	validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 )
-
-// Page represents a page to serve
-type Page struct {
-	Title string
-	Body  []byte
-}
-
-func (p *Page) save() error {
-	filename := dataPath + p.Title + ".txt"
-	return ioutil.WriteFile(filename, p.Body, 0666)
-}
-
-func loadPage(title string) (*Page, error) {
-	filename := title + ".txt"
-	body, err := ioutil.ReadFile(dataPath + filename)
-	if err != nil {
-		return nil, err
-	}
-	return &Page{Title: title, Body: body}, nil
-}
-
-func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
-	err := templates.ExecuteTemplate(w, tmpl+".html", p)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
 
 func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
 	m := validPath.FindStringSubmatch(r.URL.Path)
@@ -52,6 +25,13 @@ func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
 		return "", errors.New("invalid Page Title")
 	}
 	return m[2], nil
+}
+
+func renderTemplate(w http.ResponseWriter, tmpl string, p *page.Page) {
+	err := templates.ExecuteTemplate(w, tmpl+".html", p)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
@@ -66,7 +46,7 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
+	p, err := page.Load(title)
 	if err != nil {
 		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
 	}
@@ -74,17 +54,17 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 }
 
 func editHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
+	p, err := page.Load(title)
 	if err != nil {
-		p = &Page{Title: title}
+		p = &page.Page{Title: title}
 	}
 	renderTemplate(w, "edit", p)
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 	body := r.FormValue("body")
-	p := &Page{Title: title, Body: []byte(body)}
-	err := p.save()
+	p := &page.Page{Title: title, Body: []byte(body)}
+	err := p.Save()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
